@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>沖繩冒險日誌 2026</title>
+    <!-- 使用完整的 CDN 連結以確保 GitHub Pages 相容性 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
         
@@ -19,6 +20,7 @@
             background-color: var(--bg-main);
             color: #f1f5f9;
             -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
         }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -45,9 +47,14 @@
         input, select, textarea {
             background-color: #020617 !important;
         }
+        
+        /* 避免底部導航遮擋內容 */
+        main {
+            padding-bottom: 100px;
+        }
     </style>
 </head>
-<body class="pb-24">
+<body>
 
     <!-- Header -->
     <header class="sticky top-0 z-50 bg-[#0f172a]/80 backdrop-blur-md border-b border-cyan-500/20 px-6 py-4 flex justify-between items-center">
@@ -152,7 +159,7 @@
 
             <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
                 <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-1">冒險筆記</h3>
-                <textarea class="w-full border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-cyan-500 outline-none h-32 transition-colors resize-none" placeholder="紀錄旅行中的小驚喜..."></textarea>
+                <textarea id="adventure-notes" class="w-full border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-cyan-500 outline-none h-32 transition-colors resize-none" placeholder="紀錄旅行中的小驚喜..."></textarea>
             </div>
         </section>
 
@@ -250,10 +257,23 @@
 
         // --- 初始化 ---
         function init() {
-            lucide.createIcons();
+            if (window.lucide) {
+                lucide.createIcons();
+            }
             renderDaySelector();
             renderQuests();
             renderExpenses();
+            
+            // 載入筆記
+            const savedNotes = localStorage.getItem('ok_notes');
+            if (savedNotes) {
+                document.getElementById('adventure-notes').value = savedNotes;
+            }
+            
+            // 自動儲存筆記
+            document.getElementById('adventure-notes').addEventListener('input', (e) => {
+                localStorage.setItem('ok_notes', e.target.value);
+            });
         }
 
         // --- 分頁切換 ---
@@ -262,9 +282,13 @@
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('text-cyan-400'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.add('text-slate-600'));
 
-            document.getElementById(tabId + '-tab').classList.add('active');
-            document.getElementById('nav-' + tabId).classList.add('text-cyan-400');
-            document.getElementById('nav-' + tabId).classList.remove('text-slate-600');
+            const targetTab = document.getElementById(tabId + '-tab');
+            if (targetTab) {
+                targetTab.classList.add('active');
+                const targetNav = document.getElementById('nav-' + tabId);
+                targetNav.classList.add('text-cyan-400');
+                targetNav.classList.remove('text-slate-600');
+            }
             
             window.scrollTo(0, 0);
         }
@@ -272,6 +296,8 @@
         // --- 行程渲染 ---
         function renderDaySelector() {
             const container = document.getElementById('day-selector');
+            if (!container) return;
+            
             container.innerHTML = itinerary.map((day, idx) => `
                 <button onclick="selectDay(${idx})" class="flex-shrink-0 px-4 py-2 rounded-xl border transition-all ${currentDayIdx === idx ? 'bg-cyan-500 border-cyan-400 text-white shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-400'}">
                     <div class="text-[10px] opacity-80">${day.date}</div>
@@ -288,9 +314,14 @@
 
         function renderQuests() {
             const day = itinerary[currentDayIdx];
-            document.getElementById('current-day-title').innerHTML = `<i data-lucide="calendar" class="w-5 h-5 text-cyan-400"></i> ${day.title}`;
+            const titleEl = document.getElementById('current-day-title');
+            if (titleEl) {
+                titleEl.innerHTML = `<i data-lucide="calendar" class="w-5 h-5 text-cyan-400"></i> ${day.title}`;
+            }
             
             const list = document.getElementById('quest-list');
+            if (!list) return;
+            
             list.innerHTML = day.quests.map(q => `
                 <div class="relative pl-6 border-l-2 border-slate-800">
                     <div class="absolute left-[-5px] top-1 w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></div>
@@ -309,7 +340,7 @@
                     </div>
                 </div>
             `).join('');
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         }
 
         // --- 記帳功能 ---
@@ -318,11 +349,17 @@
             const balance = budget - totalSpent;
             const percent = Math.max(0, (balance / budget) * 100);
 
-            document.getElementById('balance-display').innerText = `￥ ${balance.toLocaleString()}`;
-            document.getElementById('spent-display').innerText = `已使用: ${totalSpent.toLocaleString()}`;
-            document.getElementById('balance-bar').style.width = percent + '%';
+            const balanceDisplay = document.getElementById('balance-display');
+            const spentDisplay = document.getElementById('spent-display');
+            const balanceBar = document.getElementById('balance-bar');
+            
+            if (balanceDisplay) balanceDisplay.innerText = `￥ ${balance.toLocaleString()}`;
+            if (spentDisplay) spentDisplay.innerText = `已使用: ${totalSpent.toLocaleString()}`;
+            if (balanceBar) balanceBar.style.width = percent + '%';
 
             const list = document.getElementById('expense-list');
+            if (!list) return;
+            
             list.innerHTML = expenses.map(e => {
                 let icon = 'shopping-bag';
                 if(e.category === 'food') icon = 'utensils';
@@ -347,14 +384,18 @@
                     </div>
                 </div>
             `}).join('');
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
             localStorage.setItem('ok_expenses', JSON.stringify(expenses));
         }
 
         function addExpense() {
-            const title = document.getElementById('exp-title').value;
-            const amount = parseInt(document.getElementById('exp-amount').value);
-            const category = document.getElementById('exp-category').value;
+            const titleInput = document.getElementById('exp-title');
+            const amountInput = document.getElementById('exp-amount');
+            const categoryInput = document.getElementById('exp-category');
+            
+            const title = titleInput.value;
+            const amount = parseInt(amountInput.value);
+            const category = categoryInput.value;
 
             if(!title || isNaN(amount)) return;
 
@@ -366,8 +407,8 @@
                 date: itinerary[currentDayIdx].date
             });
 
-            document.getElementById('exp-title').value = '';
-            document.getElementById('exp-amount').value = '';
+            titleInput.value = '';
+            amountInput.value = '';
             renderExpenses();
         }
 
@@ -376,7 +417,8 @@
             renderExpenses();
         }
 
-        window.onload = init;
+        // 確保 DOM 載入後執行
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
